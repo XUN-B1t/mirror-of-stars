@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星辰之镜 · 塔罗占卜</title>
+<meta name="description" content="一次安静的塔罗占卜：提出问题，选择牌阵，洗牌揭牌，在古典牌面的微光里照见自己的答案。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tarot.css">
+</head>
+<body>
+
+<div class="ambient" aria-hidden="true">
+  <div class="stars stars--a"></div>
+  <div class="stars stars--b"></div>
+  <div class="glow glow--a"></div>
+  <div class="glow glow--b"></div>
+  <div class="grain"></div>
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#" id="brandHome" aria-label="回到首页">
+    <span class="brand-mark" aria-hidden="true">✦</span>
+    <span class="brand-text">
+      <span class="brand-name">星辰之镜</span>
+      <span class="brand-sub">MIRROR OF STARS · TAROT</span>
+    </span>
+  </a>
+  <nav class="topnav" aria-label="辅助导航">
+    <button class="nav-link" id="btnHistory" type="button">往昔之记</button>
+    <button class="nav-link" id="btnAbout" type="button">关于塔罗</button>
+  </nav>
+</header>
+
+<div class="progress" id="progress" aria-hidden="true">
+  <span class="progress-item" data-step="ask"><i>Ⅰ</i><b>提问</b></span>
+  <span class="progress-line"></span>
+  <span class="progress-item" data-step="spread"><i>Ⅱ</i><b>择阵</b></span>
+  <span class="progress-line"></span>
+  <span class="progress-item" data-step="ritual"><i>Ⅲ</i><b>洗牌</b></span>
+  <span class="progress-line"></span>
+  <span class="progress-item" data-step="table"><i>Ⅳ</i><b>揭牌</b></span>
+  <span class="progress-line"></span>
+  <span class="progress-item" data-step="synthesis"><i>Ⅴ</i><b>启示</b></span>
+</div>
+
+<main class="stage" id="stage">
+
+  <!-- Ⅰ · 开场 -->
+  <section class="step step-hero active" id="step-hero">
+    <div class="hero-inner">
+      <p class="eyebrow">A QUIET RITUAL OF CARDS</p>
+      <h1>在牌面的微光里<br><em>照见你心中的答案</em></h1>
+      <p class="lead">塔罗不替你预言命运，它只是把散落在你心里的线索，<br class="br-wide">以另一种优雅的秩序重新铺开。</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="btnStart" type="button">开始一次占卜</button>
+        <button class="btn btn-quiet" id="btnAboutHero" type="button">它如何运作</button>
+      </div>
+      <p class="hero-note">在开始之前，请静心三十秒，想一件此刻真正挂心的事。</p>
+    </div>
+
+    <div class="hero-deck" aria-hidden="true">
+      <div class="hero-card" data-i="0"></div>
+      <div class="hero-card" data-i="1"></div>
+      <div class="hero-card" data-i="2"></div>
+    </div>
+
+    <div class="hero-footer">
+      <span>78 张古典牌面</span>
+      <span class="dot">·</span>
+      <span>正位与逆位</span>
+      <span class="dot">·</span>
+      <span>四种古典牌阵</span>
+    </div>
+  </section>
+
+  <!-- Ⅱ · 提问 -->
+  <section class="step step-ask" id="step-ask">
+    <div class="section-head">
+      <span class="step-mark">Ⅰ</span>
+      <h2>你想照见的事</h2>
+      <p class="section-lead">问题越具体，牌面的回应越清晰。请描述一件你真正在意、并愿意为之行动的事。</p>
+    </div>
+
+    <div class="ask-grid">
+      <div class="ask-main">
+        <label class="field-label" for="questionInput">你的问题</label>
+        <div class="textarea-wrap">
+          <textarea id="questionInput" maxlength="180" rows="4" placeholder="例如：这段关系里，我该继续靠近，还是先把自己照顾好？"></textarea>
+          <span class="char-count"><span id="charNow">0</span><i>/ 180</i></span>
+        </div>
+        <p class="field-hint">请避开医疗诊断、法律判决、投资结果与他人隐私这类问题。</p>
+
+        <div class="validation" id="validation" hidden aria-live="polite"></div>
+
+        <div class="section-actions">
+          <button class="btn btn-ghost" type="button" data-back="hero">返回</button>
+          <button class="btn btn-primary" id="btnToSpread" type="button">继续 · 选择牌阵</button>
+        </div>
+      </div>
+
+      <aside class="ask-aside">
+        <p class="aside-title">此刻的主题</p>
+        <div class="topics" id="topics" role="group" aria-label="占卜主题">
+          <button class="topic" type="button" data-topic="love">爱情与关系</button>
+          <button class="topic" type="button" data-topic="career">事业与工作</button>
+          <button class="topic" type="button" data-topic="study">学业与成长</button>
+          <button class="topic" type="button" data-topic="wealth">金钱与资源</button>
+          <button class="topic" type="button" data-topic="social">人际与家庭</button>
+          <button class="topic" type="button" data-topic="self">自我与心境</button>
+        </div>
+        <div class="aside-note">
+          <p>塔罗适合关于<b>选择、关系、心绪与方向</b>的问题。</p>
+          <p>它不适合替代医生、律师或理财顾问，也不用于窥探他人的隐私。</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Ⅲ · 择阵 -->
+  <section class="step step-spread" id="step-spread">
+    <div class="section-head">
+      <span class="step-mark">Ⅱ</span>
+      <h2>选择一种展开方式</h2>
+      <p class="section-lead">不同的牌阵，像是用不同的方式向同一件事提问。凭此刻的心情选择即可。</p>
+    </div>
+
+    <div class="spread-grid" id="spreadGrid"></div>
+
+    <div class="section-actions">
+      <button class="btn btn-ghost" type="button" data-back="ask">返回</button>
+      <button class="btn btn-primary" id="btnToRitual" type="button" disabled>继续 · 进入洗牌</button>
+    </div>
+  </section>
+
+  <!-- Ⅳ · 洗牌 -->
+  <section class="step step-ritual" id="step-ritual">
+    <div class="section-head">
+      <span class="step-mark">Ⅲ</span>
+      <h2>洗牌与切牌</h2>
+      <p class="section-lead">把问题轻轻放在心口。洗牌打乱时间，切牌把心意交给此刻。</p>
+    </div>
+
+    <div class="ritual-stage">
+      <div class="deck-stack" id="deckStack" aria-hidden="true"></div>
+      <p class="ritual-line" id="ritualLine">将手放在牌堆上，缓慢呼吸三次。</p>
+      <p class="ritual-sub" id="ritualSub">牌尚未被翻开，一切可能都还在。</p>
+    </div>
+
+    <div class="section-actions ritual-actions">
+      <button class="btn btn-ghost" type="button" data-back="spread">返回</button>
+      <button class="btn btn-primary" id="btnShuffle" type="button">开始洗牌</button>
+      <button class="btn btn-primary" id="btnToTable" type="button" hidden>走向牌桌 →</button>
+    </div>
+  </section>
+
+  <!-- Ⅴ · 揭牌 -->
+  <section class="step step-table" id="step-table">
+    <div class="section-head">
+      <span class="step-mark">Ⅳ</span>
+      <h2 id="tableTitle">牌已就位</h2>
+      <p class="section-lead" id="tableLead">依序轻触每一张牌，让牌面自己说话。</p>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-surface" id="tableSurface"></div>
+    </div>
+
+    <p class="table-hint" id="tableHint">已翻开 0 张</p>
+
+    <div class="section-actions">
+      <button class="btn btn-ghost" type="button" data-back="ritual">重新洗牌</button>
+      <button class="btn btn-primary" id="btnToReading" type="button" disabled>解读牌面</button>
+    </div>
+  </section>
+
+  <!-- Ⅵ · 解读 -->
+  <section class="step step-reading" id="step-reading">
+    <div class="section-head">
+      <span class="step-mark">Ⅳ</span>
+      <h2>牌面正在说话</h2>
+      <p class="section-lead" id="readingLead"></p>
+    </div>
+
+    <div class="reading-list" id="readingList"></div>
+
+    <div class="section-actions">
+      <button class="btn btn-ghost" type="button" data-back="table">回到牌桌</button>
+      <button class="btn btn-primary" id="btnToSynthesis" type="button">揭示综合解读</button>
+    </div>
+  </section>
+
+  <!-- Ⅶ · 启示 -->
+  <section class="step step-synthesis" id="step-synthesis">
+    <div class="synthesis-head">
+      <p class="eyebrow">THE READING</p>
+      <h2>关于你问的那件事</h2>
+      <p class="question-echo" id="questionEcho"></p>
+      <div class="synth-meta" id="synthMeta"></div>
+    </div>
+
+    <div class="synth-cards" id="synthCards"></div>
+    <div class="synth-body" id="synthBody"></div>
+
+    <div class="disclaimer">
+      <span class="disclaimer-mark" aria-hidden="true">✦</span>
+      <p>塔罗是一面用于自我觉察的镜子，不替代医疗、法律与投资领域的专业意见，也不替你做决定。牌面呈现的是一种可能，最终的选择始终在你手中。</p>
+    </div>
+
+    <div class="section-actions synth-actions">
+      <button class="btn btn-ghost" id="btnExport" type="button">誊写为文本</button>
+      <button class="btn btn-primary" id="btnRestart" type="button">再占一次</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <span>星辰之镜 · 以古典塔罗为镜，照见此刻的心</span>
+</footer>
+
+<!-- 往昔之记 -->
+<aside class="drawer" id="historyDrawer" aria-hidden="true" aria-label="往昔之记">
+  <div class="drawer-head">
+    <p class="eyebrow">ARCHIVE</p>
+    <h3>往昔之记</h3>
+    <button class="icon-btn" id="btnCloseHistory" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="drawer-body" id="historyBody"></div>
+  <div class="drawer-foot">
+    <button class="link-btn" id="btnClearHistory" type="button">清空所有记录</button>
+  </div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+
+<!-- 关于 -->
+<div class="modal" id="aboutModal" hidden role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+  <div class="modal-panel">
+    <button class="icon-btn modal-close" id="btnCloseAbout" type="button" aria-label="关闭">×</button>
+    <p class="eyebrow">ABOUT THE PRACTICE</p>
+    <h3 id="aboutTitle">牌是镜子，不是判词</h3>
+    <div class="modal-body">
+      <p>塔罗起源于十五世纪的欧洲，最初是一种纸牌游戏，后来逐渐被用作象征与自省的媒介。它并不预测确定的未来，而是把一个问题拆成若干侧面，让你在图像与象征中重新看见自己的处境。</p>
+      <p>一次完整的占卜包含三步：<b>提出真问题</b>、<b>安静地抽牌</b>、<b>诚实地读牌</b>。牌面的意义由牌本身、它所在的位置、正位或逆位，以及你此刻的处境共同构成。</p>
+      <p>这里提供四种经典牌阵：单牌指引、时光之流、心之棱镜与十字星图。所有牌义均为中文撰写，包含正位与逆位两种读法；牌面采用 1909 年 Rider–Waite–Smith 公版图像。</p>
+      <p class="modal-quiet">塔罗不用于医疗诊断、法律判断、投资决策，也不用于窥探他人隐私。若你正处于困境，请优先寻求专业人士与身边可信赖的人。</p>
+    </div>
+    <button class="btn btn-primary modal-action" id="btnAboutClose" type="button">知道了</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/deck.js"></script>
+<script src="js/art.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
