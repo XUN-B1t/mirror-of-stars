@@ -368,7 +368,11 @@
     drawn: [],
     flipped: 0,
     sections: null,
+    baseSections: null,
     saved: false,
+    historyId: null,
+    aiAbort: null,
+    aiText: "",
     timers: []
   };
 
@@ -1140,8 +1144,9 @@
     ];
 
     state.sections = sections;
-    renderSynthesis(sections);
+    state.baseSections = sections;
     saveToHistory(sections);
+    renderSynthesis(sections);
   }
 
   function renderSynthesis(sections) {
@@ -1155,10 +1160,285 @@
         '</b><i class="' + (d.reversed ? "rev" : "") + '">' + (d.reversed ? "逆" : "正") + "</i></span>";
     }).join("");
 
-    els.synthBody.innerHTML = sections.map(function (s, i) {
+    const template = sections.map(function (s, i) {
       return '<section class="synth-section" style="--d:' + (i * 140) + 'ms"><h3>' + s.title + "</h3>" +
         s.paras.map(function (p) { return "<p>" + p + "</p>"; }).join("") + "</section>";
     }).join("");
+
+    const aiOn = window.TarotAI && TarotAI.isConfigured();
+
+    els.synthBody.innerHTML =
+      '<section class="synth-section synth-ai" id="synthAI" hidden>' +
+      '<div class="ai-head"><span class="ai-eyebrow">✦ DEEPSEEK · AI 深读</span>' +
+      '<button class="link-btn" id="btnAIReveal" type="button">先看离线速读</button></div>' +
+      '<h3>把牌放回你的问题</h3>' +
+      '<div class="ai-state" id="aiState">正在理解你的问题…</div>' +
+      '<div class="ai-fail" id="aiFail" hidden></div>' +
+      '<div class="ai-body" id="aiBody"></div>' +
+      '<div class="ai-note" id="aiNote" hidden><span>由 DeepSeek 依据本次牌面生成 · 已通过格式与措辞校验</span>' +
+      '<button class="link-btn" id="btnAITemplate" type="button">查看离线版</button></div>' +
+      "</section>" + template;
+
+    if (aiOn) {
+      $("#synthAI").hidden = false;
+      $$(".synth-section:not(.synth-ai)", els.synthBody).forEach(function (el) {
+        el.classList.add("is-ai-hidden");
+      });
+      startAIReading();
+    } else {
+      els.synthBody.insertAdjacentHTML("afterbegin", '<div class="synth-ai-off">' +
+        "以下是离线牌义速读。配置后，AI 会先解析你的问题，再把每一张牌逐张放回这件事。" +
+        '<button class="link-btn" type="button" data-open-ai>启用 AI 深读</button></div>');
+    }
+
+    animateSynthesis();
+  }
+
+  /* ------------------------- AI 深读 ------------------------- */
+
+  const AI_LABELS = {
+    answer: ["回应", "你问的那件事"],
+    tension: ["张力", "牌与牌之间"],
+    steps: ["可行", "可以尝试的方向"],
+    close: ["收束", "把选择交回你手中"]
+  };
+
+  function aiPayload() {
+    const ctx = analyzeQuestion(state.question);
+    return {
+      question: state.question,
+      topicLabel: TOPIC_LABELS[state.topic || "self"],
+      spreadId: state.spread.id,
+      spreadName: state.spread.name,
+      ctx: ctx,
+      cards: state.drawn.map(function (d, i) {
+        const m = meaningOf(d);
+        return {
+          idx: i,
+          position: d.position.label,
+          name: d.card.name,
+          en: d.card.en,
+          orientation: d.reversed ? "逆位" : "正位",
+          keywords: m.kw.slice(0, 3),
+          meaning: m.text,
+          scene: sceneFor(d.card, ctx.topic),
+          stage: stageFor(d.card)
+        };
+      })
+    };
+  }
+
+  function aiBodyHTML(blocks, streaming) {
+    const html = [];
+    blocks.forEach(function (b) {
+      if (!b.text) return;
+      const paras = b.text.split(/\n{2,}/).map(function (p) {
+        return p.replace(/\n/g, " ").trim();
+      }).filter(Boolean);
+      if (!paras.length) return;
+
+      if (b.key === "climate") {
+        paras.forEach(function (t) { html.push("<p>" + escapeHtml(t) + "</p>"); });
+        return;
+      }
+      if (b.key === "card") {
+        const d = state.drawn[b.index];
+        const label = d ? pad(b.index + 1) + " · " + d.position.label : "牌 " + (b.index + 1);
+        const name = d ? d.card.name + (d.reversed ? "（逆位）" : "（正位）") : "";
+        html.push('<p class="ai-card-title"><i>' + escapeHtml(label) + "</i>" + escapeHtml(name) + "</p>");
+      } else {
+        const lab = AI_LABELS[b.key] || ["", ""];
+        html.push('<p class="ai-card-title"><i>' + lab[0] + "</i>" + lab[1] + "</p>");
+      }
+      paras.forEach(function (t) { html.push("<p>" + escapeHtml(t) + "</p>"); });
+    });
+
+    let out = html.join("");
+    if (streaming && out) out = out.replace(/<\/p>$/, '<span class="ai-caret"></span></p>');
+    return out;
+  }
+
+  function aiToSections(blocks) {
+    const sections = [];
+    blocks.forEach(function (b) {
+      if (!b.text) return;
+      if (b.key === "climate") {
+        sections.push({ title: "牌面的整体气候", paras: [b.text] });
+      } else if (b.key === "card") {
+        const d = state.drawn[b.index];
+        sections.push({
+          title: "第 " + (b.index + 1) + " 张 · " + (d ? d.position.label : "") +
+            "｜" + (d ? cardTitle(d) : ""),
+          paras: [b.text]
+        });
+      } else if (b.key === "steps") {
+        sections.push({
+          title: "可以尝试的方向",
+          paras: b.text.split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean)
+        });
+      } else {
+        const lab = AI_LABELS[b.key] || ["", ""];
+        sections.push({
+          title: (lab[1] || "回应") ,
+          paras: [b.text]
+        });
+      }
+    });
+    return sections;
+  }
+
+  function setAIFailure(message) {
+    const fail = $("#aiFail");
+    const stateEl = $("#aiState");
+    if (stateEl) stateEl.hidden = true;
+    if (fail) {
+      fail.hidden = false;
+      fail.innerHTML = "AI 深读暂时不可用：" + escapeHtml(message || "未知错误") +
+        "。已为你保留离线牌义解读。<button class=\"link-btn\" id=\"btnAIRetry\" type=\"button\">重试</button>";
+    }
+    $$(".synth-section:not(.synth-ai)", els.synthBody).forEach(function (el) {
+      el.classList.remove("is-ai-hidden");
+    });
+  }
+
+  function startAIReading() {
+    if (!window.TarotAI || !TarotAI.isConfigured()) return;
+    if (state.aiAbort) state.aiAbort.abort();
+
+    const payload = aiPayload();
+    const ctrl = new AbortController();
+    state.aiAbort = ctrl;
+    const stateEl = $("#aiState");
+    const bodyEl = $("#aiBody");
+    const failEl = $("#aiFail");
+    const noteEl = $("#aiNote");
+    let pending = null;
+    let scheduled = false;
+
+    function paint(full) {
+      pending = full;
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(function () {
+        scheduled = false;
+        if (pending == null) return;
+        bodyEl.innerHTML = aiBodyHTML(TarotPrompt.parse(pending), true);
+      });
+    }
+
+    if (failEl) failEl.hidden = true;
+    if (noteEl) noteEl.hidden = true;
+    if (stateEl) {
+      stateEl.hidden = false;
+      stateEl.classList.remove("is-done");
+      stateEl.textContent = "正在理解你的问题…";
+    }
+
+    TarotAI.interpret(payload, {
+      signal: ctrl.signal,
+      onStage: function (stage) {
+        if (stateEl && !stateEl.hidden) {
+          stateEl.textContent = stage === "understanding"
+            ? "正在理解你的问题…"
+            : "正在把牌面逐张放回你的问题…";
+        }
+      },
+      onDelta: function (full) { paint(full); }
+    }).then(function (res) {
+      state.aiAbort = null;
+      const check = TarotPrompt.validate(res.text, state.drawn.length);
+      if (!check.ok) throw new Error("文本未通过校验（" + check.reason + "）");
+      const finalSections = aiToSections(check.blocks);
+      if (!finalSections.length) throw new Error("文本为空");
+
+      state.sections = finalSections;
+      state.aiText = res.text;
+      if (stateEl) stateEl.hidden = true;
+      bodyEl.innerHTML = aiBodyHTML(check.blocks, false);
+      if (noteEl) noteEl.hidden = false;
+      updateHistorySections(state.historyId, finalSections);
+      $$(".synth-section:not(.synth-ai)", els.synthBody).forEach(function (el) {
+        el.classList.add("is-ai-hidden");
+      });
+    }).catch(function (err) {
+      if (ctrl.signal.aborted) return;
+      state.aiAbort = null;
+      bodyEl.innerHTML = "";
+      setAIFailure(err && err.message);
+    });
+  }
+
+  function aiConfigFromForm() {
+    return {
+      enabled: $("#aiEnabled").checked,
+      mode: $("#aiMode").value,
+      proxy: $("#aiProxy").value.trim(),
+      token: $("#aiToken").value.trim(),
+      key: $("#aiKey").value.trim(),
+      model: $("#aiModel").value
+    };
+  }
+
+  function syncAISettingsFields() {
+    const mode = $("#aiMode").value;
+    $("#aiProxyField").hidden = mode !== "proxy";
+    $("#aiTokenField").hidden = mode !== "proxy";
+    $("#aiKeyField").hidden = mode !== "direct";
+  }
+
+  function renderAIStatus() {
+    const box = $("#aiStatus");
+    if (!box) return;
+    box.className = "ai-status";
+    const cfg = window.TarotAI ? TarotAI.getConfig() : null;
+    if (!cfg) {
+      box.textContent = "AI 模块未加载，程序仍可离线使用。";
+      return;
+    }
+    if (!cfg.enabled) {
+      box.textContent = "AI 深读已关闭 · 综合解读使用离线牌义";
+      return;
+    }
+    if (!TarotAI.isConfigured(cfg)) {
+      box.textContent = cfg.mode === "direct"
+        ? "尚未配置 · 请填写 DeepSeek API Key，或改用云端代理"
+        : "尚未配置 · 请填写 Cloudflare Worker 代理地址";
+      return;
+    }
+    box.classList.add("is-ok");
+    box.textContent = "已就绪 · " + (cfg.mode === "direct" ? "浏览器直连" : "云端代理") +
+      " · " + cfg.model;
+  }
+
+  function fillAISettings() {
+    const cfg = TarotAI.getConfig();
+    $("#aiMode").value = cfg.mode;
+    $("#aiProxy").value = cfg.proxy;
+    $("#aiToken").value = cfg.token;
+    $("#aiKey").value = cfg.key;
+    $("#aiModel").value = cfg.model;
+    $("#aiEnabled").checked = cfg.enabled;
+    syncAISettingsFields();
+    renderAIStatus();
+  }
+
+  function openAISettings() {
+    if (!window.TarotAI) return;
+    fillAISettings();
+    const btn = $("#btnAITest");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "测试连接";
+    }
+    $("#aiModal").hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeAISettings() {
+    $("#aiModal").hidden = true;
+    if (!document.querySelector(".drawer.is-open")) {
+      document.body.style.overflow = "";
+    }
   }
 
   function animateSynthesis() {
@@ -1191,8 +1471,11 @@
   function saveToHistory(sections) {
     if (state.saved) return;
     state.saved = true;
+    state.historyId = String(Date.now()) + "-" + Math.random().toString(36).slice(2, 7);
     const items = loadHistory();
     items.unshift({
+      id: state.historyId,
+      ai: false,
       at: new Date().toISOString(),
       question: state.question,
       topic: TOPIC_LABELS[state.topic || "self"],
@@ -1204,6 +1487,19 @@
       sections: sections.map(function (s) {
         return { title: s.title, paras: s.paras.map(stripTags) };
       })
+    });
+    persistHistory(items);
+    renderHistory();
+  }
+
+  function updateHistorySections(id, sections) {
+    if (!id) return;
+    const items = loadHistory();
+    const item = items.filter(function (it) { return it.id === id; })[0];
+    if (!item) return;
+    item.ai = true;
+    item.sections = sections.map(function (s) {
+      return { title: s.title, paras: s.paras.map(stripTags) };
     });
     persistHistory(items);
     renderHistory();
@@ -1313,6 +1609,8 @@
       lines.push("  " + (i + 1) + ". " + d.position.label + " — " + cardTitle(d));
     });
     lines.push("");
+    lines.push("解读：" + (state.aiText ? "AI 深读（DeepSeek）" : "离线牌义"));
+    lines.push("");
     state.sections.forEach(function (s) {
       lines.push("【" + s.title + "】");
       s.paras.forEach(function (p) { lines.push(stripTags(p)); });
@@ -1339,13 +1637,20 @@
 
   function resetReading() {
     clearRitualTimers();
+    if (state.aiAbort) {
+      state.aiAbort.abort();
+      state.aiAbort = null;
+    }
     state.question = "";
     state.topic = null;
     state.spread = null;
     state.drawn = [];
     state.flipped = 0;
     state.sections = null;
+    state.baseSections = null;
     state.saved = false;
+    state.historyId = null;
+    state.aiText = "";
 
     els.question.value = "";
     els.charNow.textContent = "0";
@@ -1375,6 +1680,48 @@
     $("#btnAboutClose").addEventListener("click", closeAbout);
     els.aboutModal.addEventListener("click", function (e) {
       if (e.target === els.aboutModal) closeAbout();
+    });
+
+    $("#btnAISettings").addEventListener("click", openAISettings);
+    $("#btnCloseAI").addEventListener("click", closeAISettings);
+    $("#aiModal").addEventListener("click", function (e) {
+      if (e.target === $("#aiModal")) closeAISettings();
+    });
+    $("#aiMode").addEventListener("change", function () {
+      syncAISettingsFields();
+      renderAIStatus();
+    });
+    $("#btnAISave").addEventListener("click", function () {
+      const cfg = aiConfigFromForm();
+      if (cfg.enabled && cfg.mode === "proxy" && !cfg.proxy) {
+        showToast("请先填写代理地址");
+        return;
+      }
+      if (cfg.enabled && cfg.mode === "direct" && !cfg.key) {
+        showToast("请先填写 API Key");
+        return;
+      }
+      TarotAI.setConfig(cfg);
+      closeAISettings();
+      showToast("AI 设置已保存");
+      if (state.step === "synthesis" && state.baseSections) {
+        state.aiText = "";
+        renderSynthesis(state.baseSections);
+      }
+    });
+    $("#btnAITest").addEventListener("click", function () {
+      const btn = this;
+      const box = $("#aiStatus");
+      btn.disabled = true;
+      btn.textContent = "测试中…";
+      box.className = "ai-status";
+      box.textContent = "正在连接…";
+      TarotAI.test(aiConfigFromForm()).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = "测试连接";
+        box.className = "ai-status " + (res.ok ? "is-ok" : "is-bad");
+        box.textContent = res.message;
+      });
     });
 
     $("#btnToSpread").addEventListener("click", handleContinue);
@@ -1420,6 +1767,30 @@
       goStep("synthesis");
     });
 
+    els.synthBody.addEventListener("click", function (e) {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      if (btn.hasAttribute("data-open-ai")) {
+        openAISettings();
+        return;
+      }
+      if (btn.id === "btnAIReveal" || btn.id === "btnAITemplate") {
+        $$(".synth-section:not(.synth-ai)", els.synthBody).forEach(function (el) {
+          el.classList.remove("is-ai-hidden");
+        });
+        if (btn.id === "btnAIReveal") btn.textContent = "已显示离线速读";
+        return;
+      }
+      if (btn.id === "btnAIRetry") {
+        const fail = $("#aiFail");
+        if (fail) fail.hidden = true;
+        $$(".synth-section:not(.synth-ai)", els.synthBody).forEach(function (el) {
+          el.classList.add("is-ai-hidden");
+        });
+        startAIReading();
+      }
+    });
+
     $("#btnExport").addEventListener("click", exportReading);
     $("#btnRestart").addEventListener("click", function () {
       resetReading();
@@ -1456,6 +1827,7 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         if (!els.aboutModal.hidden) closeAbout();
+        if (!$("#aiModal").hidden) closeAISettings();
         if (els.historyDrawer.classList.contains("is-open")) closeDrawer();
       }
     });

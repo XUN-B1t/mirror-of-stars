@@ -30,6 +30,7 @@
   </a>
   <nav class="topnav" aria-label="辅助导航">
     <button class="nav-link" id="btnHistory" type="button">往昔之记</button>
+    <button class="nav-link" id="btnAISettings" type="button">AI 解读</button>
     <button class="nav-link" id="btnAbout" type="button">关于塔罗</button>
   </nav>
 </header>
@@ -246,8 +247,67 @@
       <p>一次完整的占卜包含三步：<b>提出真问题</b>、<b>安静地抽牌</b>、<b>诚实地读牌</b>。牌面的意义由牌本身、它所在的位置、正位或逆位，以及你此刻的处境共同构成。</p>
       <p>这里提供四种经典牌阵：单牌指引、时光之流、心之棱镜与十字星图。所有牌义均为中文撰写，包含正位与逆位两种读法；牌面采用 1909 年 Rider–Waite–Smith 公版图像。</p>
       <p class="modal-quiet">塔罗不用于医疗诊断、法律判断、投资决策，也不用于窥探他人隐私。若你正处于困境，请优先寻求专业人士与身边可信赖的人。</p>
+      <p class="modal-quiet">启用「AI 深读」后，你的提问与抽到的牌会经代理发送给 DeepSeek，用于生成本次解读；不会发送账号、设备或历史记录。关闭即可完全离线使用。</p>
     </div>
     <button class="btn btn-primary modal-action" id="btnAboutClose" type="button">知道了</button>
+  </div>
+</div>
+
+<!-- AI 解读设置 -->
+<div class="modal" id="aiModal" hidden role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+  <div class="modal-panel modal-panel--wide">
+    <button class="icon-btn modal-close" id="btnCloseAI" type="button" aria-label="关闭">×</button>
+    <p class="eyebrow">READING ENGINE</p>
+    <h3 id="aiTitle">AI 深读</h3>
+    <div class="modal-body">
+      <p>开启后，程序会先解析你的问题，再把每一张牌放回你的处境，生成一份只属于这次提问的解读。若调用失败，会自动回到离线牌义，占卜不会中断。</p>
+
+      <div class="ai-status" id="aiStatus" aria-live="polite"></div>
+
+      <label class="field">
+        <span>连接方式</span>
+        <select id="aiMode">
+          <option value="proxy">云端代理（推荐）</option>
+          <option value="direct">浏览器直连（仅本人设备）</option>
+        </select>
+      </label>
+
+      <label class="field" id="aiProxyField">
+        <span>代理地址</span>
+        <input id="aiProxy" type="url" placeholder="https://mirror-of-stars-ai.xxx.workers.dev" autocomplete="off" spellcheck="false">
+        <em>Cloudflare Worker 地址。密钥保存在服务端，页面里不会出现。</em>
+      </label>
+
+      <label class="field" id="aiTokenField">
+        <span>访问口令（可选）</span>
+        <input id="aiToken" type="password" placeholder="与服务端 ACCESS_TOKEN 一致" autocomplete="off">
+      </label>
+
+      <label class="field" id="aiKeyField" hidden>
+        <span>DeepSeek API Key</span>
+        <input id="aiKey" type="password" placeholder="sk-..." autocomplete="off">
+        <em>只保存在本机浏览器。公共设备上不要使用，密钥可能被页面脚本读取。</em>
+      </label>
+
+      <label class="field">
+        <span>模型</span>
+        <select id="aiModel">
+          <option value="deepseek-chat">deepseek-chat（推荐，快而稳）</option>
+          <option value="deepseek-reasoner">deepseek-reasoner（更深，更慢）</option>
+        </select>
+      </label>
+
+      <label class="switch-field">
+        <input id="aiEnabled" type="checkbox">
+        <span>在综合解读时启用 AI 深读</span>
+      </label>
+
+      <p class="modal-quiet">隐私：只有提问文本、主题、牌阵与牌面信息会发送至 DeepSeek。未配置或关闭时，程序完全在本地运行。</p>
+    </div>
+    <div class="modal-actions-row">
+      <button class="btn btn-ghost" id="btnAITest" type="button">测试连接</button>
+      <button class="btn btn-primary" id="btnAISave" type="button">保存设置</button>
+    </div>
   </div>
 </div>
 
@@ -255,6 +315,8 @@
 
 <script src="js/deck.js"></script>
 <script src="js/art.js"></script>
+<script src="js/prompt.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
