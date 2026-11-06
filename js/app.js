@@ -1277,9 +1277,13 @@
           paras: b.text.split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean)
         });
       } else {
-        const lab = AI_LABELS[b.key] || ["", ""];
+        const titles = {
+          answer: "把牌放回你的问题",
+          tension: "牌与牌之间的张力",
+          close: "收束"
+        };
         sections.push({
-          title: (lab[1] || "回应") ,
+          title: titles[b.key] || "回应",
           paras: [b.text]
         });
       }
