@@ -11,10 +11,14 @@
   const CACHE_MAX = 8;
   const TIMEOUT = 45000;
 
-  /* 部署 Cloudflare Worker 后，把它的地址填在这里（例如
-     "https://mirror-of-stars-ai.xxx.workers.dev"），所有访客即可直接使用 AI。
+  /* 部署好代理后，把地址填在这里，所有访客即可直接使用 AI。
      留空时，访客需要自行填写代理地址或 API Key。 */
-  const DEFAULT_PROXY = "https://mirror-of-stars-ai.mirror-of-stars.workers.dev";
+  const DEFAULT_PROXY = "https://tarot-d3ga80qy502907cbc.service.tcloudbase.com/tarot-ai";
+
+  /* 腾讯云云开发等平台会缓冲响应，无法透传 SSE，此时改用整段返回。 */
+  function streamSupported(url) {
+    return !/tcloudbase|cloudbase|tencentcloud/i.test(String(url || ""));
+  }
 
   const DEFAULTS = {
     enabled: true,
@@ -288,8 +292,13 @@
     const messages = window.TarotPrompt.buildReadingMessages(
       Object.assign({}, payload, { aiCtx: ctx })
     );
-    const text = await streamChat(messages, { stream: true, maxTokens: 1500, temperature: 0.78 },
-      cfg, handlers);
+    const target = endpoint(cfg) || "";
+    const text = await streamChat(
+      messages,
+      { stream: streamSupported(target), maxTokens: 1500, temperature: 0.78 },
+      cfg,
+      handlers
+    );
     writeCache(key, text);
     return { text: text, ctx: ctx, cached: false };
   }
