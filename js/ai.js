@@ -14,7 +14,7 @@
   /* 部署 Cloudflare Worker 后，把它的地址填在这里（例如
      "https://mirror-of-stars-ai.xxx.workers.dev"），所有访客即可直接使用 AI。
      留空时，访客需要自行填写代理地址或 API Key。 */
-  const DEFAULT_PROXY = "";
+  const DEFAULT_PROXY = "https://mirror-of-stars-ai.mirror-of-stars.workers.dev";
 
   const DEFAULTS = {
     enabled: true,
