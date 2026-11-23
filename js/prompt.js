@@ -5,8 +5,8 @@
 (function () {
   "use strict";
 
-  const SECTION_RE = /\[\[(climate|card|answer|tension|steps|close)\]\]/gi;
-  const SECTION_KEYS = ["climate", "card", "answer", "tension", "steps", "close"];
+  const SECTION_RE = /\[\[(title|verdict|climate|card|answer|tension|steps|close)\]\]/gi;
+  const SECTION_KEYS = ["title", "verdict", "climate", "card", "answer", "tension", "steps", "close"];
 
   const KIND_LABEL = {
     choice: "二选一（需要比较两个选项）",
@@ -18,34 +18,37 @@
   };
 
   const SYSTEM = [
-    "你是「星辰之镜」的塔罗解读者。来访者刚刚抽完牌，并写下了自己的问题。",
-    "你的任务不是复述牌义，而是把每一张牌放回他/她的具体处境，让牌面回答那个问题。",
+    "你是「星辰之镜」的塔罗解读者。来访者刚抽完牌并写下问题。",
+    "你要写一份有判断力的解读：先给结论，再拆原因，最后给可执行的动作。",
     "",
-    "必须遵守：",
-    "1. 只依据给出的牌（名称、位置、正逆位、关键词、牌义）解读，不得虚构牌面、不得改变牌序。",
-    "2. 不使用决定论表述：禁止「一定会」「必然会」「命中注定」「百分之百」「绝对会」；改用「更可能」「倾向于」「取决于」。",
-    "3. 不回答医疗诊断、法律判决、投资涨跌、彩票中奖；不对第三人的内心下断言。",
-    "4. 每段都要落在提问者的问题对象与选项上，不写通用的心灵鸡汤，不复述牌义原文。",
-    "5. 语气克制、典雅、第二人称；句子短，少用形容词；不要使用 Markdown、编号、额外标题或前后寒暄。",
-    "6. 严格按标记输出，标记独占一行，顺序固定。不要输出标记以外的小标题。",
+    "写作规则：",
+    "1. 先说结论。第一段就要回答「这件事现在是什么状况、要不要做、最大的风险在哪」，不要让读者读到最后才知道你的判断。",
+    "2. 每张牌必须三段式推进：牌面本身的意象（一句话，不背牌义）→ 对应到他的具体处境（要有细节，像你了解他的生活）→ 若不改变会怎样（具体的后果或代价）。",
+    "3. 用具体的名词和动作，禁止空话。不要写「保持积极」「多沟通」「相信自己」；要写「这周找一个人问一句具体的话」「把 A 和 B 的条件各列三条」「每两周复盘一次」。",
+    "4. 语气直接、克制、有分量。可以用「必须」「不要」「立刻」「这是你唯一要注意的」，不要用「或许」「可能有点」堆叠软化。",
+    "5. 不给医疗诊断、法律判决、投资涨跌结论；不断言第三人的内心想法。对未来的判断用「会更可能」「倾向于」描述趋势，但对风险可以说得明确。",
+    "6. 不使用 Markdown、编号、额外标题、前后寒暄。严格按标记输出，标记独占一行，顺序固定。",
     "",
     "标记说明：",
-    "[[climate]] 牌阵的整体气候，3-4 句，先讲气象，再点出它与问题对象的关系。",
-    "[[card]] 每张牌一段，按给出的顺序，一张牌一段。第一句点出牌名与它所在的位置，第二句说这张牌在此刻的意思，第三句必须落到提问者的具体处境或选项。",
-    "[[answer]] 直接回应问题类型：二选一分别说两个选项的代价与收益；是非题给出有条件的倾向；方法题给出关键一步；原因题指出维持现状的东西；时机题说明阶段与条件。",
-    "[[tension]] 一段，讲牌与牌之间的呼应或矛盾：哪张在拉你往回，哪张在推你向前。",
-    "[[steps]] 2-3 条可以今天就开始做的具体动作，每条一句话，独立成行，不要空话。",
-    "[[close]] 1-2 句收束，把决定权交回提问者，不要许诺结果。"
+    "[[title]] 一行标题，18-30 字，格式类似「你的{目标或处境}：{转折}，{最关键的提醒}」。不要出现牌名，要像一篇文章的标题。",
+    "[[verdict]] 2-3 句。第一句直接给判断（能做到什么、卡在哪、最大的风险是什么），第二句给前提条件。这是全文最重要的一段。",
+    "[[climate]] 2-3 句。整体气候，只讲大趋势，不重复 verdict。",
+    "[[card]] 每张牌一段，3-5 句，按上面第 2 条的三段式写。第一句必须点出牌名与位置。",
+    "[[answer]] 直接回应问题类型：二选一分别说两个选项的代价与收益，并给出倾向；是非题给出有条件的结论；方法题给出关键一步；原因题指出维持现状的东西；时机题说明阶段与触发条件。",
+    "[[tension]] 一段，讲牌与牌之间的呼应或矛盾：哪张在拉你往回，哪张在推你向前，这个张力会怎样具体地消耗你。",
+    "[[steps]] 2-3 条，每条一行，格式固定为「短标题｜具体做法」。短标题 4-10 字，做法必须含时机、频率、对象或数量中的至少两项。",
+    "[[close]] 1-2 句收束。把决定权交回他，语气平稳，不要许诺结果，不要煽情。"
   ].join("\n");
 
   const STAGE1_SYSTEM = [
-    "你是问题解析器。把来访者的问题解析成 JSON，只输出 JSON，不要任何解释、前缀或代码块。",
+    "你是问题解析器。把来访者的问题解析成 JSON，只输出 JSON，不要解释、不要代码块。",
     "字段：",
     "subject：问题真正指向的对象（不超过 12 字）",
     "decision：他/她实际要做的决定（不超过 16 字）",
     "stakes：选错会失去什么（不超过 14 字）",
     "implicit_fear：问题里没有明说的担忧（不超过 14 字）",
     "focus：解读应聚焦的一个词（不超过 8 字）",
+    "goal：他想要达成的具体结果（不超过 14 字）",
     "若信息不足，用最合理的推断，不要留空。"
   ].join("\n");
 
@@ -81,7 +84,8 @@
     }
     if (c.core) lines.push("这个主题真正涉及：" + clip(c.core, 60));
     if (payload.aiCtx) {
-      lines.push("模型解析出的决定：" + clip(payload.aiCtx.decision, 30));
+      lines.push("他想要的结果：" + clip(payload.aiCtx.goal, 30));
+      lines.push("实际要做的决定：" + clip(payload.aiCtx.decision, 30));
       lines.push("可能失去的东西：" + clip(payload.aiCtx.stakes, 30));
       lines.push("未明说的担忧：" + clip(payload.aiCtx.implicit_fear, 30));
       lines.push("本次解读聚焦：" + clip(payload.aiCtx.focus, 20));
@@ -92,7 +96,11 @@
   function buildReadingMessages(payload) {
     const n = payload.cards.length;
     const format = [
-      "输出格式（必须逐字使用这些标记，标记单独占一行）：",
+      "输出格式（逐字使用这些标记，标记单独占一行）：",
+      "[[title]]",
+      "……",
+      "[[verdict]]",
+      "……",
       "[[climate]]",
       "……",
       payload.cards.map(function () {
@@ -103,12 +111,12 @@
       "[[tension]]",
       "……",
       "[[steps]]",
-      "……",
+      "标题｜做法\n标题｜做法",
       "[[close]]",
       "……",
       "",
       "共 " + n + " 段 [[card]]，顺序与上面的牌一一对应。全文控制在 " +
-      Math.max(600, n * 150 + 400) + " 字以内。"
+      Math.max(700, n * 170 + 500) + " 字以内。"
     ].join("\n");
 
     return [
@@ -174,10 +182,11 @@
   }
 
   const BANNED = [
-    /(一定|必然|绝对)(会|能|是|发生|成功|失败)/,
     /命中注定/,
     /百分之百/,
-    /注定(会|是|要)/,
+    /注定了/,
+    /绝对会/,
+    /必然会/,
     /(买入|卖出|加仓|减仓|买彩票|下注)/
   ];
 
@@ -190,22 +199,31 @@
     const cards = blocks.filter(function (b) { return b.key === "card"; });
     const total = blocks.reduce(function (n, b) { return n + b.text.length; }, 0);
 
-    if (!byKey.climate || byKey.climate.length < 30) {
+    if (!byKey.title || byKey.title.length < 8) {
+      return { ok: false, reason: "缺少标题" };
+    }
+    if (!byKey.verdict || byKey.verdict.length < 30) {
+      return { ok: false, reason: "缺少结论段落" };
+    }
+    if (!byKey.climate || byKey.climate.length < 20) {
       return { ok: false, reason: "缺少整体气候段落" };
     }
     if (cards.length !== cardCount) {
       return { ok: false, reason: "逐牌段落数量不符（" + cards.length + "/" + cardCount + "）" };
     }
-    if (cards.some(function (c) { return c.text.length < 25; })) {
+    if (cards.some(function (c) { return c.text.length < 45; })) {
       return { ok: false, reason: "有牌面段落过短" };
     }
     if (!byKey.answer || byKey.answer.length < 30) {
       return { ok: false, reason: "缺少回应问题的段落" };
     }
-    if (total < 250) {
+    if (!byKey.steps || byKey.steps.split(/\n+/).filter(Boolean).length < 2) {
+      return { ok: false, reason: "建议条目不足" };
+    }
+    if (total < 400) {
       return { ok: false, reason: "解读内容过短" };
     }
-    if (total > 3200) {
+    if (total > 3600) {
       return { ok: false, reason: "解读内容过长" };
     }
     for (let i = 0; i < BANNED.length; i++) {
@@ -225,7 +243,7 @@
     try {
       const obj = JSON.parse(s.slice(start, end + 1));
       const out = {};
-      ["subject", "decision", "stakes", "implicit_fear", "focus"].forEach(function (k) {
+      ["subject", "decision", "stakes", "implicit_fear", "focus", "goal"].forEach(function (k) {
         out[k] = clip(obj[k], 20);
       });
       return out.subject ? out : null;

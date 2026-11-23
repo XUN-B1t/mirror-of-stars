@@ -1171,7 +1171,7 @@
       '<section class="synth-section synth-ai" id="synthAI" hidden>' +
       '<div class="ai-head"><span class="ai-eyebrow">✦ DEEPSEEK · AI 深读</span>' +
       '<button class="link-btn" id="btnAIReveal" type="button">先看离线速读</button></div>' +
-      '<h3>把牌放回你的问题</h3>' +
+      '<h3 id="aiTitle">把牌放回你的问题</h3>' +
       '<div class="ai-state" id="aiState">正在理解你的问题…</div>' +
       '<div class="ai-fail" id="aiFail" hidden></div>' +
       '<div class="ai-body" id="aiBody"></div>' +
@@ -1199,9 +1199,19 @@
   const AI_LABELS = {
     answer: ["回应", "你问的那件事"],
     tension: ["张力", "牌与牌之间"],
-    steps: ["可行", "可以尝试的方向"],
-    close: ["收束", "把选择交回你手中"]
+    steps: ["可行", "具体怎么做"]
   };
+
+  function aiTitle(blocks) {
+    const b = blocks.filter(function (x) { return x.key === "title"; })[0];
+    return b && b.text ? b.text.split("\n")[0].trim() : "";
+  }
+
+  function setAITitle(blocks) {
+    const h = $("#aiTitle");
+    const t = aiTitle(blocks);
+    if (h && t) h.textContent = t;
+  }
 
   function aiPayload() {
     const ctx = analyzeQuestion(state.question);
@@ -1232,25 +1242,47 @@
     const html = [];
     blocks.forEach(function (b) {
       if (!b.text) return;
-      const paras = b.text.split(/\n{2,}/).map(function (p) {
-        return p.replace(/\n/g, " ").trim();
-      }).filter(Boolean);
-      if (!paras.length) return;
+      if (b.key === "title") return;
 
-      if (b.key === "climate") {
-        paras.forEach(function (t) { html.push("<p>" + escapeHtml(t) + "</p>"); });
+      if (b.key === "verdict") {
+        splitParas(b.text).forEach(function (t) {
+          html.push('<p class="ai-verdict">' + escapeHtml(t) + "</p>");
+        });
         return;
       }
+      if (b.key === "close") {
+        splitParas(b.text).forEach(function (t) {
+          html.push('<p class="ai-close">' + escapeHtml(t) + "</p>");
+        });
+        return;
+      }
+
       if (b.key === "card") {
         const d = state.drawn[b.index];
         const label = d ? pad(b.index + 1) + " · " + d.position.label : "牌 " + (b.index + 1);
         const name = d ? d.card.name + (d.reversed ? "（逆位）" : "（正位）") : "";
         html.push('<p class="ai-card-title"><i>' + escapeHtml(label) + "</i>" + escapeHtml(name) + "</p>");
-      } else {
+      } else if (b.key !== "climate") {
         const lab = AI_LABELS[b.key] || ["", ""];
         html.push('<p class="ai-card-title"><i>' + lab[0] + "</i>" + lab[1] + "</p>");
       }
-      paras.forEach(function (t) { html.push("<p>" + escapeHtml(t) + "</p>"); });
+
+      if (b.key === "steps") {
+        splitLines(b.text).forEach(function (line) {
+          const parts = line.split(/[｜|]/);
+          if (parts.length > 1) {
+            html.push('<p class="ai-step"><b>' + escapeHtml(parts[0].trim()) + "</b>" +
+              escapeHtml(parts.slice(1).join("｜").trim()) + "</p>");
+          } else {
+            html.push('<p class="ai-step">' + escapeHtml(line) + "</p>");
+          }
+        });
+        return;
+      }
+
+      splitParas(b.text).forEach(function (t) {
+        html.push("<p>" + escapeHtml(t) + "</p>");
+      });
     });
 
     let out = html.join("");
@@ -1258,12 +1290,26 @@
     return out;
   }
 
+  function splitParas(text) {
+    return String(text || "").split(/\n{2,}/).map(function (p) {
+      return p.replace(/\n/g, " ").trim();
+    }).filter(Boolean);
+  }
+
+  function splitLines(text) {
+    return String(text || "").split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean);
+  }
+
   function aiToSections(blocks) {
     const sections = [];
     blocks.forEach(function (b) {
       if (!b.text) return;
-      if (b.key === "climate") {
-        sections.push({ title: "牌面的整体气候", paras: [b.text] });
+      if (b.key === "title") {
+        sections.push({ title: b.text, paras: [] });
+      } else if (b.key === "verdict") {
+        sections.push({ title: "结论", paras: [b.text] });
+      } else if (b.key === "climate") {
+        sections.push({ title: "整体气候", paras: [b.text] });
       } else if (b.key === "card") {
         const d = state.drawn[b.index];
         sections.push({
@@ -1272,20 +1318,14 @@
           paras: [b.text]
         });
       } else if (b.key === "steps") {
-        sections.push({
-          title: "可以尝试的方向",
-          paras: b.text.split(/\n+/).map(function (t) { return t.trim(); }).filter(Boolean)
-        });
+        sections.push({ title: "具体怎么做", paras: splitLines(b.text) });
       } else {
         const titles = {
-          answer: "把牌放回你的问题",
+          answer: "回应你问的那件事",
           tension: "牌与牌之间的张力",
           close: "收束"
         };
-        sections.push({
-          title: titles[b.key] || "回应",
-          paras: [b.text]
-        });
+        sections.push({ title: titles[b.key] || "回应", paras: [b.text] });
       }
     });
     return sections;
@@ -1326,7 +1366,9 @@
       requestAnimationFrame(function () {
         scheduled = false;
         if (pending == null) return;
-        bodyEl.innerHTML = aiBodyHTML(TarotPrompt.parse(pending), true);
+        const blocks = TarotPrompt.parse(pending);
+        setAITitle(blocks);
+        bodyEl.innerHTML = aiBodyHTML(blocks, true);
       });
     }
 
@@ -1358,6 +1400,7 @@
       state.sections = finalSections;
       state.aiText = res.text;
       if (stateEl) stateEl.hidden = true;
+      setAITitle(check.blocks);
       bodyEl.innerHTML = aiBodyHTML(check.blocks, false);
       if (noteEl) noteEl.hidden = false;
       updateHistorySections(state.historyId, finalSections);

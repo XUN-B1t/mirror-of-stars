@@ -1764,6 +1764,57 @@ textarea:focus {
   color: var(--gold-dim);
 }
 
+#aiTitle {
+  font-family: var(--serif);
+  font-size: 1.14rem;
+  line-height: 1.8;
+  letter-spacing: .02em;
+  margin: 0 0 18px;
+  color: var(--ivory);
+}
+
+.ai-verdict {
+  margin: 0 0 16px;
+  padding: 15px 17px;
+  border-left: 2px solid var(--gold-dim);
+  background: rgba(201, 169, 107, .045);
+  font-size: .9rem;
+  line-height: 2.05;
+  color: var(--text);
+}
+
+.ai-step {
+  position: relative;
+  margin: 0 0 14px;
+  padding-left: 16px;
+  line-height: 2;
+}
+
+.ai-step::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .98em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+}
+
+.ai-step b {
+  display: block;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--gold-soft);
+}
+
+.ai-close {
+  margin-top: 20px !important;
+  color: var(--muted);
+  font-size: .8rem;
+  letter-spacing: .03em;
+}
+
 .ai-caret {
   display: inline-block;
   width: 1px;
